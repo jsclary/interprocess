@@ -4,7 +4,7 @@ use crate::os::unix::uds_local_socket::tokio as uds_impl;
 use crate::os::windows::named_pipe::local_socket::tokio as np_impl;
 use {
     super::r#trait,
-    crate::local_socket::{tokio::Stream, ListenerOptions},
+    crate::local_socket::{tokio::Stream, Listener as SyncListener, ListenerOptions},
     std::io,
 };
 
@@ -41,5 +41,19 @@ impl r#trait::Listener for Listener {
     #[inline]
     fn do_not_reclaim_name_on_drop(&mut self) {
         dispatch!(Self: x in self => x.do_not_reclaim_name_on_drop())
+    }
+}
+
+impl TryFrom<SyncListener> for Listener {
+    type Error = io::Error;
+    fn try_from(sync: SyncListener) -> io::Result<Self> {
+        Ok(match sync {
+            #[cfg(unix)]
+            SyncListener::UdSocket(inner) => Self::UdSocket(uds_impl::Listener::try_from(inner)?),
+            #[cfg(windows)]
+            SyncListener::NamedPipe(inner) => {
+                Self::NamedPipe(np_impl::Listener::try_from(inner)?)
+            }
+        })
     }
 }

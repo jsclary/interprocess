@@ -19,7 +19,7 @@ type ListenerImpl = PipeListener<Bytes, Bytes>;
 /// Wrapper around [`PipeListener`] that implements [`Listener`](traits::Listener).
 #[derive(Debug)]
 pub struct Listener {
-    listener: ListenerImpl,
+    pub(crate) listener: ListenerImpl,
     nonblocking: AtomicEnum<ListenerNonblockingMode>,
 }
 impl Sealed for Listener {}

@@ -6,7 +6,10 @@ use {
             traits::{tokio as traits, StreamCommon},
             ConnectOptions, PeerCreds,
         },
-        os::unix::{c_wrappers, local_socket::peer_creds::PeerCreds as PeerCredsInner},
+        os::unix::{
+            c_wrappers, local_socket::peer_creds::PeerCreds as PeerCredsInner,
+            uds_local_socket::stream::Stream as SyncStream,
+        },
         ConnectWaitMode, Sealed,
     },
     std::{
@@ -160,6 +163,13 @@ impl TryFrom<OwnedFd> for Stream {
     #[inline]
     fn try_from(fd: OwnedFd) -> io::Result<Self> {
         Ok(UnixStream::from_std(SyncUnixStream::from(fd))?.into())
+    }
+}
+impl TryFrom<SyncStream> for Stream {
+    type Error = io::Error;
+    fn try_from(sync: SyncStream) -> io::Result<Self> {
+        sync.inner().set_nonblocking(true)?;
+        Self::try_from(OwnedFd::from(sync))
     }
 }
 

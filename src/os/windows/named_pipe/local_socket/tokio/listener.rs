@@ -3,7 +3,8 @@ use {
     crate::{
         local_socket::{traits::tokio as traits, ListenerOptions, NameInner},
         os::windows::named_pipe::{
-            pipe_mode, tokio::PipeListener as GenericPipeListener, PipeListenerOptions,
+            local_socket::listener::Listener as SyncListener, pipe_mode,
+            tokio::PipeListener as GenericPipeListener, PipeListenerOptions,
         },
         Sealed,
     },
@@ -53,6 +54,17 @@ impl From<PipeListener> for Listener {
 impl From<Listener> for PipeListener {
     #[inline(always)]
     fn from(l: Listener) -> Self { l.0 }
+}
+
+impl TryFrom<SyncListener> for Listener {
+    type Error = io::Error;
+    fn try_from(sync: SyncListener) -> io::Result<Self> {
+        GenericPipeListener::from_handle_and_options(
+            sync.listener.stored_instance.into_inner().map_err(crate::poison_error)?,
+            sync.listener.config,
+        )
+        .map(Self)
+    }
 }
 
 multimacro! {

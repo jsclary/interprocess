@@ -4,7 +4,7 @@ use crate::os::unix::uds_local_socket::tokio as uds_impl;
 use crate::os::windows::named_pipe::local_socket::tokio as np_impl;
 use {
     super::r#trait,
-    crate::local_socket::{traits::StreamCommon, ConnectOptions, PeerCreds},
+    crate::local_socket::{traits::StreamCommon, ConnectOptions, PeerCreds, Stream as SyncStream},
     std::{
         io,
         pin::Pin,
@@ -147,6 +147,18 @@ impl r#trait::SendHalf for SendHalf {
 multimacro! {
     SendHalf,
     dispatch_write,
+}
+
+impl TryFrom<SyncStream> for Stream {
+    type Error = io::Error;
+    fn try_from(sync: SyncStream) -> io::Result<Self> {
+        Ok(match sync {
+            #[cfg(unix)]
+            SyncStream::UdSocket(inner) => Self::UdSocket(uds_impl::Stream::try_from(inner)?),
+            #[cfg(windows)]
+            SyncStream::NamedPipe(inner) => Self::NamedPipe(np_impl::Stream::try_from(inner)?),
+        })
+    }
 }
 
 /// [`ReuniteError`](crate::error::ReuniteError) for [`Stream`].

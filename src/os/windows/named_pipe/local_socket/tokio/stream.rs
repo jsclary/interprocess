@@ -11,6 +11,7 @@ use {
         os::windows::{
             local_socket::peer_creds::PeerCreds as PeerCredsInner,
             named_pipe::{
+                local_socket::stream::Stream as SyncStream,
                 pipe_mode::Bytes,
                 tokio::{DuplexPipeStream, RecvPipeStream, SendPipeStream},
             },
@@ -93,6 +94,13 @@ impl AsyncWrite for &Stream {
     #[inline]
     fn poll_shutdown(self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<io::Result<()>> {
         Poll::Ready(Ok(()))
+    }
+}
+
+impl TryFrom<SyncStream> for Stream {
+    type Error = io::Error;
+    fn try_from(sync: SyncStream) -> io::Result<Self> {
+        Self::try_from(OwnedHandle::from(sync)).map_err(io::Error::from)
     }
 }
 

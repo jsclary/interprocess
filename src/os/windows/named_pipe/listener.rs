@@ -40,10 +40,10 @@ pub use {incoming::*, options::*};
 #[cfg_attr(doc, doc = doctest_file::include_doctest!("examples/named_pipe/sync/listener.rs"))]
 /// ```
 pub struct PipeListener<Rm: PipeModeTag, Sm: PipeModeTag> {
-    config: PipeListenerOptions<'static>, // We need the options to create new instances
+    pub(crate) config: PipeListenerOptions<'static>, // We need the options to create new instances
     nonblocking: AtomicBool,
     // TODO implement a handover mechanism for the case of having an instance limit of 1
-    stored_instance: Mutex<OwnedHandle>,
+    pub(crate) stored_instance: Mutex<OwnedHandle>,
     _phantom: PhantomData<(Rm, Sm)>,
 }
 impl<Rm: PipeModeTag, Sm: PipeModeTag> PipeListener<Rm, Sm> {
