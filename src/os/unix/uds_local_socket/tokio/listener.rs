@@ -63,6 +63,19 @@ impl TryFrom<SyncListener> for Listener {
     }
 }
 
+/// Construction from existing file descriptors.
+impl Listener {
+    /// Creates a listener from an already-listening file descriptor.
+    ///
+    /// No binding or `listen()` call is performed. If [name reclamation] is enabled in `opts`,
+    /// the actual socket path is obtained via `getsockname` and used for cleanup on drop.
+    ///
+    /// [name reclamation]: crate::local_socket::Listener#name-reclamation
+    pub fn from_fd_with_options(fd: OwnedFd, opts: ListenerOptions<'_>) -> io::Result<Self> {
+        SyncListener::from_fd_with_options(fd, opts).and_then(Self::try_from)
+    }
+}
+
 impl Debug for Listener {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_struct("Listener")

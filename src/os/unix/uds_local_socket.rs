@@ -25,7 +25,7 @@ use {
         timeout_expiry,
     },
     std::{
-        ffi::{CStr, OsStr},
+        ffi::{CStr, CString, OsStr},
         fmt::{self, Debug, Formatter},
         io,
         mem::MaybeUninit,
@@ -59,6 +59,17 @@ impl ReclaimGuard {
     fn take(&mut self) -> Self { Self(std::mem::take(&mut self.0)) }
     /// Disarms the reclaim guard. It will not do anything when dropped.
     fn forget(&mut self) { self.0 = Box::new([]); }
+    /// Creates a reclamation guard for a path-based socket, reading the path directly from
+    /// the bound socket address. If `cond` is false or the socket has no filesystem path
+    /// (e.g. abstract namespace or unbound), creates a disarmed guard instead.
+    fn from_path(cond: bool, path: &Path) -> io::Result<Self> {
+        if !cond {
+            return Ok(Self::disarmed());
+        }
+        let cstr = CString::new(path.as_os_str().as_bytes())
+            .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "interior nul byte in socket path"))?;
+        Ok(Self(cstr.into_bytes_with_nul().into_boxed_slice()))
+    }
     fn as_c_str(&self) -> Option<&CStr> {
         // SAFETY: the only constructor that produces a non-empty one gets
         //         it from into_bytes_with_nul

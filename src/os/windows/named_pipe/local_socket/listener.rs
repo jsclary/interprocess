@@ -11,7 +11,7 @@ use {
         },
         AtomicEnum, Sealed,
     },
-    std::{io, iter::FusedIterator, sync::atomic::Ordering::*},
+    std::{borrow::Cow, io, iter::FusedIterator, sync::atomic::Ordering::*},
 };
 
 type ListenerImpl = PipeListener<Bytes, Bytes>;
@@ -77,6 +77,27 @@ impl Iterator for Listener {
     fn next(&mut self) -> Option<Self::Item> { Some(traits::Listener::accept(self)) }
 }
 impl FusedIterator for Listener {}
+
+/// Construction from existing handles.
+impl Listener {
+    /// Creates a listener from an existing named pipe server handle, using the given options.
+    ///
+    /// The handle must already be a listening named pipe server instance. The pipe path in `opts`
+    /// and other options are used to create new instances on each [`accept()`](traits::Listener::accept) call.
+    pub fn from_handle_with_options(handle: OwnedHandle, opts: ListenerOptions<'_>) -> io::Result<Self> {
+        let nb_accept = opts.get_nonblocking_accept();
+        let nb_stream = opts.get_nonblocking_stream();
+        let nonblocking = ListenerNonblockingMode::from_bool(nb_accept, nb_stream);
+        let NameInner::NamedPipe(path) = opts.name.0;
+        let impl_options = PipeListenerOptions {
+            path: Cow::Owned(path.into_owned()),
+            nonblocking: nb_accept,
+            security_descriptor: opts.security_descriptor,
+            ..PipeListenerOptions::new()
+        };
+        Ok(Self { listener: ListenerImpl::from_handle_and_options(handle, impl_options), nonblocking: AtomicEnum::new(nonblocking) })
+    }
+}
 
 impl From<Listener> for OwnedHandle {
     #[inline]

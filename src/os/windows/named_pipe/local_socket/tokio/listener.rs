@@ -8,7 +8,7 @@ use {
         },
         Sealed,
     },
-    std::io,
+    std::{borrow::Cow, io, os::windows::io::OwnedHandle},
 };
 
 type PipeListener = GenericPipeListener<pipe_mode::Bytes, pipe_mode::Bytes>;
@@ -54,6 +54,23 @@ impl From<PipeListener> for Listener {
 impl From<Listener> for PipeListener {
     #[inline(always)]
     fn from(l: Listener) -> Self { l.0 }
+}
+
+/// Construction from existing handles.
+impl Listener {
+    /// Creates a listener from an existing named pipe server handle, using the given options.
+    ///
+    /// The handle must already be a listening named pipe server instance. The pipe path in `opts`
+    /// and other options are used to create new instances on each [`accept()`](traits::Listener::accept) call.
+    pub fn from_handle_with_options(handle: OwnedHandle, opts: ListenerOptions<'_>) -> io::Result<Self> {
+        let NameInner::NamedPipe(path) = opts.name.0;
+        let impl_options = PipeListenerOptions {
+            path: Cow::Owned(path.into_owned()),
+            security_descriptor: opts.security_descriptor,
+            ..PipeListenerOptions::new()
+        };
+        GenericPipeListener::from_handle_and_options(handle, impl_options).map(Self)
+    }
 }
 
 impl TryFrom<SyncListener> for Listener {

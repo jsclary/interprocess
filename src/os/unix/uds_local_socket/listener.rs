@@ -94,6 +94,29 @@ impl Listener {
     pub fn inner_mut(&mut self) -> &mut UnixListener { &mut self.listener }
 }
 
+/// Construction from existing file descriptors.
+impl Listener {
+    /// Creates a listener from an already-listening file descriptor.
+    ///
+    /// No binding or `listen()` call is performed. If [name reclamation] is enabled in `opts`,
+    /// the actual socket path is obtained via `getsockname` and used for cleanup on drop.
+    ///
+    /// [name reclamation]: crate::local_socket::Listener#name-reclamation
+    pub fn from_fd_with_options(fd: OwnedFd, opts: ListenerOptions<'_>) -> io::Result<Self> {
+        let listener = UnixListener::from(fd);
+        let reclaim = if let Some(path) = listener.local_addr()?.as_pathname() {
+            ReclaimGuard::from_path(opts.get_reclaim_name(), path)?
+        } else {
+            ReclaimGuard::default()
+        };
+        Ok(Self {
+            listener,
+            reclaim,
+            nonblocking_streams: AtomicBool::new(opts.get_nonblocking_stream()),
+        })
+    }
+}
+
 /// Has no name reclamation and defaults to blocking mode for resulting streams.
 impl From<UnixListener> for Listener {
     fn from(listener: UnixListener) -> Self {

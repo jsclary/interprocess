@@ -224,6 +224,70 @@ impl ListenerOptions<'_> {
     }
 }
 
+/// Listener constructors from existing OS resources.
+impl ListenerOptions<'_> {
+    /// Creates a [`Listener`] from an already-listening Unix domain socket file descriptor.
+    ///
+    /// No binding or `listen()` call is performed. If [name reclamation] is enabled (the
+    /// default), the actual socket path is obtained via `getsockname` and used for cleanup on
+    /// drop.
+    ///
+    /// [name reclamation]: Listener#name-reclamation
+    #[cfg(unix)]
+    #[cfg_attr(feature = "doc_cfg", doc(cfg(unix)))]
+    pub fn create_sync_from_fd(self, fd: std::os::fd::OwnedFd) -> io::Result<Listener> {
+        crate::os::unix::uds_local_socket::Listener::from_fd_with_options(fd, self)
+            .map(Into::into)
+    }
+    /// Creates a Tokio [`Listener`](TokioListener) from an already-listening Unix domain socket
+    /// file descriptor.
+    ///
+    /// No binding or `listen()` call is performed. If [name reclamation] is enabled (the
+    /// default), the actual socket path is obtained via `getsockname` and used for cleanup on
+    /// drop.
+    ///
+    /// [name reclamation]: Listener#name-reclamation
+    #[cfg(all(unix, feature = "tokio"))]
+    #[cfg_attr(feature = "doc_cfg", doc(cfg(all(unix, feature = "tokio"))))]
+    pub fn create_tokio_from_fd(self, fd: std::os::fd::OwnedFd) -> io::Result<TokioListener> {
+        crate::os::unix::uds_local_socket::tokio::Listener::from_fd_with_options(fd, self)
+            .map(Into::into)
+    }
+    /// Creates a [`Listener`] from an existing Windows named pipe server handle.
+    ///
+    /// The handle must already be a listening named pipe server instance. The pipe path set via
+    /// [`.name()`](Self::name) and other options are used to create new instances on each
+    /// [`accept()`](traits::Listener::accept) call.
+    #[cfg(windows)]
+    #[cfg_attr(feature = "doc_cfg", doc(cfg(windows)))]
+    pub fn create_sync_from_handle(
+        self,
+        handle: std::os::windows::io::OwnedHandle,
+    ) -> io::Result<Listener> {
+        crate::os::windows::named_pipe::local_socket::Listener::from_handle_with_options(
+            handle, self,
+        )
+        .map(Into::into)
+    }
+    /// Creates a Tokio [`Listener`](TokioListener) from an existing Windows named pipe server
+    /// handle.
+    ///
+    /// The handle must already be a listening named pipe server instance. The pipe path set via
+    /// [`.name()`](Self::name) and other options are used to create new instances on each
+    /// [`accept()`](traits::tokio::Listener::accept) call.
+    #[cfg(all(windows, feature = "tokio"))]
+    #[cfg_attr(feature = "doc_cfg", doc(cfg(all(windows, feature = "tokio"))))]
+    pub fn create_tokio_from_handle(
+        self,
+        handle: std::os::windows::io::OwnedHandle,
+    ) -> io::Result<TokioListener> {
+        crate::os::windows::named_pipe::local_socket::tokio::Listener::from_handle_with_options(
+            handle, self,
+        )
+        .map(Into::into)
+    }
+}
+
 impl Default for ListenerOptions<'_> {
     #[inline]
     fn default() -> Self { Self::new() }
